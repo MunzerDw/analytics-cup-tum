@@ -32,8 +32,12 @@ geo
 
 # Preprocessing
 
+## Fix country string
+
 customers$COUNTRY <- gsub('Switzerland', 'CH', customers$COUNTRY)
 customers$COUNTRY <- gsub('France', 'FR', customers$COUNTRY)
+
+## Fix customer string
 
 transactions <- transactions %>% mutate(CUSTOMER = str_replace_all(transactions$CUSTOMER, '"', ''))
 transactions <- transactions %>% mutate(CUSTOMER = str_replace_all(transactions$CUSTOMER, "\\\\", ''))
@@ -43,13 +47,33 @@ transactions <- transactions %>%
     CUSTOMER = as.double(CUSTOMER)
   )
 
-customers$CUSOMTER_ID <- paste(customers$CUSTOMER,customers$COUNTRY,sep="")
-# Merge
+## Create customer id
+
+customers$CUSTOMER_ID <- paste(customers$CUSTOMER,customers$COUNTRY,sep="")
+
+## Merge
 
 df <- merge(x = transactions, y = geo, by = "SALES_LOCATION", all.x = TRUE)
-df$CUSOMTER_ID <- paste(df$CUSTOMER,df$COUNTRY,sep="")
+
+## Create customer id
+
+df$CUSTOMER_ID <- paste(df$CUSTOMER,df$COUNTRY,sep="")
+
+df_all <- merge(x = df, y = customers, by = "CUSTOMER_ID", all.x = TRUE)
+df <- df_all
 df[500,]
 
-df_all <- merge(x = df, y = customers, by = "CUSOMTER_ID", all.x = TRUE)
+## Handle offers with one MO_ID only
+# df[duplicated(df[,c('MO_ID')]),]
+df$MULTIPLE_OFFER <- if_else(!duplicated(df$MO_ID), 0, 1)
 
+## Max: Every third
+
+## Jessica: Every second
+
+## Munzer: Every first
+## +MO_CREATED_DATE
+
+
+summary(df)
 
