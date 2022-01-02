@@ -69,6 +69,30 @@ df$MULTIPLE_OFFER <- if_else(!duplicated(df$MO_ID), 0, 1)
 
 ## Max: Every third
 
+df %>%
+  as.data.frame() %>%
+  summarise_all(funs(sum(is.na(.))))
+
+df$TEST_SET_ID[is.na(df$TEST_SET_ID)] <- 0
+df$END_CUSTOMER <- ifelse(is.na(df$END_CUSTOMER), df$CUSTOMER_ID, df$END_CUSTOMER)
+sum(is.na(df$END_CUSTOMER))
+df$CUSTOMER.x <- NULL
+df$CUSTOMER.y <- NULL
+df$TEST_SET_ID[is.na(df$TEST_SET_ID)] <- 0
+df$ISIC[is.na(df$ISIC)] <- 0 #double check against official DB?
+df <- df %>% drop_na(SALES_BRANCH)
+df <- df %>% drop_na(REV_CURRENT_YEAR.1)
+df <- df %>% drop_na(OFFER_STATUS)
+df <- df %>% mutate(OFFER_STATUS = toupper(OFFER_STATUS))
+df$OFFER_STATUS <- gsub("WIN", 1, df$OFFER_STATUS)
+df$OFFER_STATUS <- gsub("WON", 1, df$OFFER_STATUS)
+df$OFFER_STATUS <- gsub("LOSE", 0, df$OFFER_STATUS)
+df$OFFER_STATUS <- gsub("LOST", 0, df$OFFER_STATUS)
+df$OFFER_STATUS <- as.logical(as.integer(df$OFFER_STATUS))
+
+df %>%
+  as.data.frame() %>%
+  summarise_all(funs(sum(is.na(.))))
 ## Jessica: Every second
 
 ## Munzer: Every first
