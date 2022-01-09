@@ -5,6 +5,8 @@ library(summarytools) # for user-friendly html summaries of data
 library(ggmap) # for plotting data on a map
 # for meta-ml
 library(tidymodels)
+library(corrplot)
+library(ggcorrplot)
 
 #library(ranger) # ranger random forest model. Import not explicitly necessary, will be loaded by parsnips
 
@@ -70,7 +72,7 @@ df$MULTIPLE_OFFER <- if_else(!duplicated(df$MO_ID), 0, 1)
 # which column to drop?
 # END_CUSTOMER
 df <- df %>% select(-END_CUSTOMER, -END_CUSTOMER, -SALES_OFFICE, -SO_ID, )
-df <- df %>% select(-CUSTOMER.x, -CUSTOMER.y, -COUNTRY.y, -COUNTRY.x, )
+df <- df %>% select(-CUSTOMER.x, -CUSTOMER.y, -COUNTRY.y, )
 
 # which rows to drop?
 # SALES_LOCATION,ISIC
@@ -79,9 +81,41 @@ df <- df %>% drop_na(SALES_LOCATION)
 df <- df %>% drop_na(ISIC)
 
 train <- df[is.na(df$TEST_SET_ID), ]
+train <- train %>% select(-TEST_SET_ID, )
+
 submission <- df[!is.na(df$TEST_SET_ID), ]
 
+# Exploratory Analysis
+
+df <- df %>% mutate(
+  OFFER_STATUS=as.factor(toupper(OFFER_STATUS))
+)
+df$OFFER_STATUS[df$OFFER_STATUS == "LOSE"] <- "LOST"
+df$OFFER_STATUS[df$OFFER_STATUS == "WIN"] <- "WON"
+
+train <- df[is.na(df$TEST_SET_ID), ]
 train <- train %>% select(-TEST_SET_ID, )
+
+## won offers are cheaper
+train %>% ggplot(aes(y=OFFER_PRICE, x=OFFER_STATUS, fill = OFFER_STATUS)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+## offer status country
+ggplot(train, aes(fill=OFFER_STATUS, x=COUNTRY.x)) + geom_bar(position="stack")
+
+## won offers and total costs
+train %>% ggplot(aes(y=SERVICE_COST + MATERIAL_COST, x=OFFER_STATUS, fill = OFFER_STATUS)) +
+  geom_boxplot() +
+  scale_y_log10() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+## offer status country
+ggplot(train, aes(fill=OFFER_STATUS, x=TECH)) + geom_bar(position="stack")
+
+## offer status to sales location
+ggplot(train, aes(fill=OFFER_STATUS, x=SALES_BRANCH)) + geom_bar(position="stack")
+
 
 #####################################
 
