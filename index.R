@@ -114,8 +114,29 @@ train %>% ggplot(aes(y=SERVICE_COST + MATERIAL_COST, x=OFFER_STATUS, fill = OFFE
 ggplot(train, aes(fill=OFFER_STATUS, x=TECH)) + geom_bar(position="stack")
 
 ## offer status to sales location
-ggplot(train, aes(fill=OFFER_STATUS, x=SALES_BRANCH)) + geom_bar(position="stack")
+ggplot(df, aes(fill=OFFER_STATUS, x=SALES_BRANCH)) + geom_bar(position="stack")
 
+## correlation of numerical variables
+test <- train
+
+test$OFFER_STATUS[test$OFFER_STATUS == "LOST"] <- 0
+test$OFFER_STATUS[test$OFFER_STATUS == "WON"] <- 1
+
+test <- test %>% mutate(
+  OFFER_STATUS=as.numeric(OFFER_STATUS)
+)
+
+nums <- unlist(lapply(test, is.numeric))  
+nums <- test[ , nums]  
+M <- cor(nums)
+corrplot(M, method = 'number')
+
+## correlation of categorical variables
+chisq.test(train$OFFER_STATUS, train$COUNTRY.x, correct=FALSE)
+chisq.test(train$OFFER_STATUS, train$TECH, correct=FALSE)
+chisq.test(train$OFFER_STATUS, train$SALES_BRANCH)
+chisq.test(train$OFFER_STATUS, train$CURRENCY)
+chisq.test(train$OFFER_STATUS, train$CURRENCY)
 
 #####################################
 
