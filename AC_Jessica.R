@@ -124,7 +124,7 @@ df_uniq <- unique(df$OFFER_STATUS)
 df_uniq
 #to lowercase
 df$OFFER_STATUS = tolower(df$OFFER_STATUS)
-
+df_uniq <- unique(df$OFFER_STATUS)
 length(df_uniq)
 #5
 #lose & lost?
