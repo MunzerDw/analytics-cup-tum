@@ -290,18 +290,14 @@ head(df2)
 order(df$SERVICE_COST)
 
 
-#Tech EPS entfernen
+#remove Tech EPS 
 df <- df[df$TECH !='EPS', ]  
 
-# negativ in Service Cost
+# remove negative values
 df <- df[df$SERVICE_COST >=0, ]    
 df <- df[df$COSTS_PRODUCT_B >=0, ]  
-summary(df1)
-df$COSTS_PRODUCT_B
+summary(df)
 
-df$REV_CURRENT_YEAR
-
-df$MCD_YEAR
 
 df <- df %>% mutate(REV_CURRENT_YEAR = str_replace_all(df$REV_CURRENT_YEAR, '"', ''))
 df <- df %>% mutate(REV_CURRENT_YEAR = str_replace_all(df$REV_CURRENT_YEAR, "\\\\", ''))
