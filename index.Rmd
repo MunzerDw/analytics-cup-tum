@@ -18,6 +18,8 @@ library(summarytools) # for user-friendly html summaries of data
 library(ggmap) # for plotting data on a map
 library(tidymodels) # for meta-ml
 library(corrplot)
+library(party)
+library(randomForest)
 
 # let's set some global options
 options(dplyr.width = Inf) # show all columns when printing to console
@@ -264,5 +266,76 @@ chisq.test(train$OFFER_STATUS, train$CURRENCY)
 chisq.test(train$OFFER_STATUS, train$CURRENCY)
 ```
 
+# 4) Training
+
+## 4.1) Balance data
+
+```{r}
+print(nrow(train[train$OFFER_STATUS == "LOST",]))
+print(nrow(train[train$OFFER_STATUS == "WON",]))
+
+# sort train dataset
+sorted <- train[order(train$OFFER_STATUS),]
+
+# take first 7198 samples (3599 * 2)
+sorted <- sorted[1:7198,]
+shuffled <- sorted[sample(1:nrow(sorted)), ]
+
+# create balanced train and validation datasets
+balanced_train <- shuffled[1:5000,]
+balanced_val <- shuffled[5001:6000,]
+
+# check OFFER_STATUS distribution
+print("TRAIN")
+print(nrow(balanced_train[balanced_train$OFFER_STATUS == "LOST",]))
+print(nrow(balanced_train[balanced_train$OFFER_STATUS == "WON",]))
+print("VALIDATION")
+print(nrow(balanced_val[balanced_val$OFFER_STATUS == "LOST",]))
+print(nrow(balanced_val[balanced_val$OFFER_STATUS == "WON",]))
+```
+
+## 4.2) Train model
+
+```{r}
+# Create the forest.
+model <- randomForest(OFFER_STATUS ~ . - CUSTOMER_ID,
+                              data = balanced_train)
+#model <- randomForest(OFFER_STATUS ~ SERVICE_COST + REV_CURRENT_YEAR.1 + SALES_BRANCH + BUSINESS_TYPE + OFFER_TYPE + REV_CURRENT_YEAR.2,
+#                              data = balanced_train)
+
+
+# View the forest results.
+print(model)
+# Importance of each predictor.
+print(importance(model, type = 2))
+```
+
+
+Plot variables importance
+```{r}
+varImpPlot(model)
+```
+
+## 4.3) Evaluate Model
+
+```{r}
+balanced_val_preditions <- predict(model, newdata = balanced_val)
+lvs <- c("WON", "LOST")
+truth <- factor(balanced_val$OFFER_STATUS,
+                levels = rev(lvs))
+pred <- factor(
+               balanced_val_preditions,               
+               levels = rev(lvs))
+xtab <- table(pred, truth)
+confusionMatrix(xtab)
+#confusion_matrix <- table(balanced_val$OFFER_STATUS, as.numeric(balanced_val_preditions) > 1)
+#confusion_matrix
+```
+
+## 4.4) Create submission
+
+```{r}
+submission
+```
 
 
