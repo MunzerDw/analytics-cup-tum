@@ -87,10 +87,6 @@ df$MULTIPLE_OFFER <- if_else(!duplicated(df$MO_ID), 0, 1)
 
 df <- df %>% select(-END_CUSTOMER, -END_CUSTOMER, -SALES_OFFICE, -SO_ID, )
 df <- df %>% select(-CUSTOMER.x, -CUSTOMER.y, -COUNTRY.y, )
-
-df <- df %>% drop_na(REV_CURRENT_YEAR.1)
-df <- df %>% drop_na(SALES_LOCATION)
-df <- df %>% drop_na(ISIC)
 ```
 
 Fix target variable OFFER_STATUS
@@ -120,12 +116,6 @@ df <- df %>% mutate(
   OWNERSHIP = factor(OWNERSHIP, labels = as.vector(unique(df$OWNERSHIP))[!is.na(as.vector(unique(df$OWNERSHIP)))]),
   CURRENCY = factor(CURRENCY, labels = as.vector(unique(df$CURRENCY))[!is.na(as.vector(unique(df$CURRENCY)))]),
 )
-```
-
-Remove negative values
-```{r}
-df <- df[df$SERVICE_COST >=0, ]    
-df <- df[df$COSTS_PRODUCT_B >=0, ] 
 ```
 
 Handle dates
@@ -195,8 +185,13 @@ df <- df %>% mutate(
 ## 2.3) Create data split
 
 ```{r}
-train <- df[is.na(df$TEST_SET_ID), ]
 submission <- df[!is.na(df$TEST_SET_ID), ]
+
+df <- df %>% drop_na(REV_CURRENT_YEAR.1)
+df <- df %>% drop_na(SALES_LOCATION)
+df <- df %>% drop_na(ISIC)
+
+train <- df[is.na(df$TEST_SET_ID), ]
 
 train <- train %>% select(-TEST_SET_ID, )
 train

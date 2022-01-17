@@ -64,10 +64,6 @@ df$MULTIPLE_OFFER <- if_else(!duplicated(df$MO_ID), 0, 1)
 df <- df %>% select(-END_CUSTOMER, -END_CUSTOMER, -SALES_OFFICE, -SO_ID, )
 df <- df %>% select(-CUSTOMER.x, -CUSTOMER.y, -COUNTRY.y, )
 
-df <- df %>% drop_na(REV_CURRENT_YEAR.1)
-df <- df %>% drop_na(SALES_LOCATION)
-df <- df %>% drop_na(ISIC)
-
 
 ## ------------------------------------------------------------------------------------------------
 df <- df %>% mutate(
@@ -93,11 +89,6 @@ df <- df %>% mutate(
   OWNERSHIP = factor(OWNERSHIP, labels = as.vector(unique(df$OWNERSHIP))[!is.na(as.vector(unique(df$OWNERSHIP)))]),
   CURRENCY = factor(CURRENCY, labels = as.vector(unique(df$CURRENCY))[!is.na(as.vector(unique(df$CURRENCY)))]),
 )
-
-
-## ------------------------------------------------------------------------------------------------
-df <- df[df$SERVICE_COST >=0, ]    
-df <- df[df$COSTS_PRODUCT_B >=0, ] 
 
 
 ## ------------------------------------------------------------------------------------------------
@@ -164,8 +155,13 @@ df <- df %>% mutate(
 
 
 ## ------------------------------------------------------------------------------------------------
-train <- df[is.na(df$TEST_SET_ID), ]
 submission <- df[!is.na(df$TEST_SET_ID), ]
+
+df <- df %>% drop_na(REV_CURRENT_YEAR.1)
+df <- df %>% drop_na(SALES_LOCATION)
+df <- df %>% drop_na(ISIC)
+
+train <- df[is.na(df$TEST_SET_ID), ]
 
 train <- train %>% select(-TEST_SET_ID, )
 train
@@ -296,7 +292,7 @@ submission_file_df <- submission_final %>% select(TEST_SET_ID, OFFER_STATUS)
 submission_file_df$OFFER_STATUS <- ifelse(submission_file_df$OFFER_STATUS == 'WON', 1, 0)
 summary(submission_file_df)
 
-write.csv(submission_file_df, 'predictions_fierce_pigeon_number.csv', row.names = FALSE)
+write.csv(submission_file_df, 'predictions_fierce_pigeon_SUBMISSION_NUMBER.csv', row.names = FALSE)
 
 
 ## ------------------------------------------------------------------------------------------------
