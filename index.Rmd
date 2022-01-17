@@ -320,7 +320,7 @@ varImpPlot(model)
 
 ```{r}
 balanced_val_preditions <- predict(model, newdata = balanced_val)
-lvs <- c("WON", "LOST")
+lvs <- c("LOST", "WON")
 truth <- factor(balanced_val$OFFER_STATUS,
                 levels = rev(lvs))
 pred <- factor(
@@ -328,14 +328,39 @@ pred <- factor(
                levels = rev(lvs))
 xtab <- table(pred, truth)
 confusionMatrix(xtab)
-#confusion_matrix <- table(balanced_val$OFFER_STATUS, as.numeric(balanced_val_preditions) > 1)
-#confusion_matrix
 ```
 
 ## 4.4) Create submission
 
+Predict OFFER_STATUS of the submission data
+
 ```{r}
-submission
+submission_preditions <- predict(model, newdata = submission)
 ```
+
+Create submission file
+
+```{r}
+submission_final <- submission
+submission_final$OFFER_STATUS <- submission_preditions
+
+print(nrow(submission_final[submission_final$OFFER_STATUS == "LOST",]))
+print(nrow(submission_final[submission_final$OFFER_STATUS == "WON",]))
+
+submission_file_df <- submission_final %>% select(TEST_SET_ID, OFFER_STATUS)
+submission_file_df$OFFER_STATUS <- ifelse(submission_file_df$OFFER_STATUS == 'WON', 1, 0)
+summary(submission_file_df)
+
+write.csv(submission_file_df, 'predictions_fierce_pigeon_SUBMISSION_NUMBER.csv', row.names = FALSE)
+```
+
+```{r}
+knitr::purl("index.Rmd")
+```
+
+
+
+
+
 
 
