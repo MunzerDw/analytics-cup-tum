@@ -20,6 +20,8 @@ library(tidymodels) # for meta-ml
 library(corrplot)
 library(party)
 library(randomForest)
+library(imputeTS)
+library(caret)
 
 # let's set some global options
 options(dplyr.width = Inf) # show all columns when printing to console
@@ -182,20 +184,55 @@ df <- df %>% mutate(
 )
 ```
 
-## 2.3) Create data split
+## 2.3) Handle NAs
+
+For numeric columns, we replace the NAs with the mean. For factorial columns, we replace the NAs with a new level "None"
+
+```{r}
+temp <- df$TEST_SET_ID
+df <- na_mean(df,)
+df$TEST_SET_ID <- temp
+
+#  SALES_LOCATION
+levels_sales_location <- levels(df$SALES_LOCATION)
+levels_sales_location[length(levels_sales_location) + 1] <- "None"
+df$SALES_LOCATION <- factor(df$SALES_LOCATION, levels = levels_sales_location)
+df$SALES_LOCATION[is.na(df$SALES_LOCATION)] <- "None"
+
+#  SALES_BRANCH
+levels_sales_location <- levels(df$SALES_BRANCH)
+levels_sales_location[length(levels_sales_location) + 1] <- "None"
+df$SALES_BRANCH <- factor(df$SALES_BRANCH, levels = levels_sales_location)
+df$SALES_BRANCH[is.na(df$SALES_BRANCH)] <- "None"
+
+#  OWNERSHIP
+levels_sales_location <- levels(df$OWNERSHIP)
+levels_sales_location[length(levels_sales_location) + 1] <- "None"
+df$OWNERSHIP <- factor(df$OWNERSHIP, levels = levels_sales_location)
+df$OWNERSHIP[is.na(df$OWNERSHIP)] <- "None"
+
+#  CURRENCY
+levels_sales_location <- levels(df$CURRENCY)
+levels_sales_location[length(levels_sales_location) + 1] <- "None"
+df$CURRENCY <- factor(df$CURRENCY, levels = levels_sales_location)
+df$CURRENCY[is.na(df$CURRENCY)] <- "None"
+
+# CREATION_YEAR
+df$CREATION_YEAR[is.na(df$CREATION_YEAR)] <- df$CREATION_YEAR[10]
+```
+
+
+## 2.4) Create data split
 
 ```{r}
 submission <- df[!is.na(df$TEST_SET_ID), ]
-
-df <- df %>% drop_na(REV_CURRENT_YEAR.1)
-df <- df %>% drop_na(SALES_LOCATION)
-df <- df %>% drop_na(ISIC)
 
 train <- df[is.na(df$TEST_SET_ID), ]
 
 train <- train %>% select(-TEST_SET_ID, )
 train
 ```
+
 
 ```{r}
 submission
@@ -325,18 +362,6 @@ xtab <- table(pred, truth)
 confusionMatrix(xtab)
 ```
 
-## 4.4.1) 
-
-library(h2o)
-
-h2o.init()
-independent <- c(names(train))
-independent <- independent[! independent %in% c("OFFER_STATUS")]
-
-train <-  as.h2o(train)
-
-h2o_auto = h2o.automl(y = "OFFER_STATUS", x = independent ,training_frame  = train, max_runtime_secs = 15000, seed = 2022) #currently set to ~4h
-h2o_auto
 
 ## 4.4) Create submission
 

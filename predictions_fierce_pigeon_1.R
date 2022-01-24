@@ -1,4 +1,4 @@
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 library(tidyverse)
 library(lubridate) # data exploration
 library(summarytools) # for user-friendly html summaries of data
@@ -14,7 +14,7 @@ theme_set(theme_minimal()) # select a lightweight ggplot theme for cleaner plott
 set.seed(2022)
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 customers <- read_csv(
   'Training_Data_AC2022/customers.csv'
 )
@@ -31,7 +31,7 @@ geo <- read_csv(
 geo
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 ## Fix country string
 customers$COUNTRY <- gsub('Switzerland', 'CH', customers$COUNTRY)
 customers$COUNTRY <- gsub('France', 'FR', customers$COUNTRY)
@@ -58,14 +58,14 @@ df$CUSTOMER_ID <- paste(df$CUSTOMER,df$COUNTRY,sep="")
 df <- merge(x = df, y = customers, by = "CUSTOMER_ID", all.x = TRUE)
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 df$MULTIPLE_OFFER <- if_else(!duplicated(df$MO_ID), 0, 1)
 
 df <- df %>% select(-END_CUSTOMER, -END_CUSTOMER, -SALES_OFFICE, -SO_ID, )
 df <- df %>% select(-CUSTOMER.x, -CUSTOMER.y, -COUNTRY.y, )
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 df <- df %>% mutate(
   OFFER_STATUS=toupper(OFFER_STATUS)
 )
@@ -73,11 +73,11 @@ df$OFFER_STATUS[df$OFFER_STATUS == "LOSE"] <- "LOST"
 df$OFFER_STATUS[df$OFFER_STATUS == "WIN"] <- "WON"
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 df <- df[df$TECH !='EPS', ]  
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 df <- df %>% mutate(
   SALES_LOCATION = factor(SALES_LOCATION, labels = as.vector(unique(df$SALES_LOCATION))[!is.na(as.vector(unique(df$SALES_LOCATION)))]),
   PRICE_LIST = factor(PRICE_LIST, labels = as.vector(unique(df$PRICE_LIST))),
@@ -91,7 +91,7 @@ df <- df %>% mutate(
 )
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 df <- df %>% mutate(REV_CURRENT_YEAR = str_replace_all(df$REV_CURRENT_YEAR, '"', ''))
 df <- df %>% mutate(REV_CURRENT_YEAR = str_replace_all(df$REV_CURRENT_YEAR, "\\\\", ''))
 df$REV_CURRENT_YEAR <- as.integer(df$REV_CURRENT_YEAR)
@@ -154,7 +154,15 @@ df <- df %>% mutate(
 )
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
+mean_rev <- mean(df$REV_CURRENT_YEAR)
+mean_rev1 <- mean(df$REV_CURRENT_YEAR.1)
+mean_rev2 <- mean(df$REV_CURRENT_YEAR.2)
+
+df <- df %>% mutate(REV_CURRENT_YEAR  = ifelse(is.na(REV_CURRENT_YEAR), mean_rev, REV_CURRENT_YEAR))
+
+
+## -------------------------------------------------------------------------------------------
 submission <- df[!is.na(df$TEST_SET_ID), ]
 
 df <- df %>% drop_na(REV_CURRENT_YEAR.1)
@@ -167,40 +175,40 @@ train <- train %>% select(-TEST_SET_ID, )
 train
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 submission
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 ## Offer status compared to offer price: won offers are cheaper
 train %>% ggplot(aes(y=OFFER_PRICE, x=OFFER_STATUS, fill = OFFER_STATUS)) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 # Won offers and total costs: won offers have lower costs
 train %>% ggplot(aes(y=SERVICE_COST + MATERIAL_COST, x=OFFER_STATUS, fill = OFFER_STATUS)) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 # Country by OFFER_STATUS
 ggplot(train, aes(fill=OFFER_STATUS, x=COUNTRY.x)) + geom_bar(position="stack")
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 ## Offer status country
 ggplot(train, aes(fill=OFFER_STATUS, x=TECH)) + geom_bar(position="stack")
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 ## Offer status to sales location
 ggplot(train, aes(fill=OFFER_STATUS, x=SALES_BRANCH)) + geom_bar(position="stack")
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 # Copy training dataset
 numeric_train_df <- train
 
@@ -215,7 +223,7 @@ correlations <- cor(nums)
 corrplot(correlations)
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 chisq.test(train$OFFER_STATUS, train$COUNTRY.x, correct=FALSE)
 chisq.test(train$OFFER_STATUS, train$TECH, correct=FALSE)
 chisq.test(train$OFFER_STATUS, train$SALES_BRANCH)
@@ -223,7 +231,7 @@ chisq.test(train$OFFER_STATUS, train$CURRENCY)
 chisq.test(train$OFFER_STATUS, train$CURRENCY)
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 print(nrow(train[train$OFFER_STATUS == "LOST",]))
 print(nrow(train[train$OFFER_STATUS == "WON",]))
 
@@ -247,7 +255,7 @@ print(nrow(balanced_val[balanced_val$OFFER_STATUS == "LOST",]))
 print(nrow(balanced_val[balanced_val$OFFER_STATUS == "WON",]))
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 # Create the forest.
 model <- randomForest(OFFER_STATUS ~ . - CUSTOMER_ID,
                               data = balanced_train)
@@ -261,11 +269,11 @@ print(model)
 print(importance(model, type = 2))
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 varImpPlot(model)
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 balanced_val_preditions <- predict(model, newdata = balanced_val)
 lvs <- c("LOST", "WON")
 truth <- factor(balanced_val$OFFER_STATUS,
@@ -277,11 +285,11 @@ xtab <- table(pred, truth)
 confusionMatrix(xtab)
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 submission_preditions <- predict(model, newdata = submission)
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 submission_final <- submission
 submission_final$OFFER_STATUS <- submission_preditions
 
@@ -295,6 +303,6 @@ summary(submission_file_df)
 write.csv(submission_file_df, 'predictions_fierce_pigeon_SUBMISSION_NUMBER.csv', row.names = FALSE)
 
 
-## ------------------------------------------------------------------------------------------------
+## -------------------------------------------------------------------------------------------
 knitr::purl("index.Rmd")
 
