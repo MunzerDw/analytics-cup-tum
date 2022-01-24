@@ -309,13 +309,12 @@ print(nrow(train[train$OFFER_STATUS == "WON",]))
 # sort train dataset
 sorted <- train[order(train$OFFER_STATUS),]
 
-# take first 7198 samples (3599 * 2)
-sorted <- sorted[1:7198,]
+# shuffle
 shuffled <- sorted[sample(1:nrow(sorted)), ]
 
 # create balanced train and validation datasets
-balanced_train <- shuffled[1:5000,]
-balanced_val <- shuffled[5001:6000,]
+balanced_train <- shuffled[1:22000,]
+balanced_val <- shuffled[22001:23000,]
 
 # check OFFER_STATUS distribution
 print("TRAIN")
@@ -351,7 +350,11 @@ varImpPlot(model)
 ## 4.3) Evaluate Model
 
 ```{r}
-balanced_val_preditions <- predict(model, newdata = balanced_val)
+balanced_val_preditions <- predict(model, newdata = balanced_val, type = 'prob')
+balanced_val_preditions <- balanced_val_preditions[,2]
+threshold_p <- 0.7
+balanced_val_preditions[balanced_val_preditions >= threshold_p] <- 'WON'
+balanced_val_preditions[balanced_val_preditions < threshold_p] <- 'LOST'
 lvs <- c("LOST", "WON")
 truth <- factor(balanced_val$OFFER_STATUS,
                 levels = rev(lvs))
@@ -368,7 +371,14 @@ confusionMatrix(xtab)
 Predict OFFER_STATUS of the submission data
 
 ```{r}
-submission_preditions <- predict(model, newdata = submission)
+submission_preditions <- predict(model, newdata = submission, type = 'prob')
+submission_preditions <- submission_preditions[,2]
+submission_preditions[submission_preditions >= threshold_p] <- 'WON'
+submission_preditions[submission_preditions < threshold_p] <- 'LOST'
+lvs <- c("LOST", "WON")
+submission_preditions <- factor(
+               submission_preditions,               
+               levels = rev(lvs))
 ```
 
 Create submission file
