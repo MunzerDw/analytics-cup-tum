@@ -325,6 +325,19 @@ xtab <- table(pred, truth)
 confusionMatrix(xtab)
 ```
 
+## 4.4.1) 
+
+library(h2o)
+
+h2o.init()
+independent <- c(names(train))
+independent <- independent[! independent %in% c("OFFER_STATUS")]
+
+train <-  as.h2o(train)
+
+h2o_auto = h2o.automl(y = "OFFER_STATUS", x = independent ,training_frame  = train, max_runtime_secs = 15000, seed = 2022) #currently set to ~4h
+h2o_auto
+
 ## 4.4) Create submission
 
 Predict OFFER_STATUS of the submission data
