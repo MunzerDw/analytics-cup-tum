@@ -331,8 +331,6 @@ print(nrow(balanced_val[balanced_val$OFFER_STATUS == "WON",]))
 # Create the forest.
 model <- randomForest(OFFER_STATUS ~ . - CUSTOMER_ID,
                               data = balanced_train)
-#model <- randomForest(OFFER_STATUS ~ SERVICE_COST + REV_CURRENT_YEAR.1 + SALES_BRANCH + BUSINESS_TYPE + OFFER_TYPE + REV_CURRENT_YEAR.2,
-#                              data = balanced_train)
 
 
 # View the forest results.
