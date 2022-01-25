@@ -296,7 +296,11 @@ varImpPlot(model)
 
 
 ## -------------------------------------------------------------------------------------------
-balanced_val_preditions <- predict(model, newdata = balanced_val)
+balanced_val_preditions <- predict(model, newdata = balanced_val, type = 'prob')
+balanced_val_preditions <- balanced_val_preditions[,2]
+threshold_p <- 0.7
+balanced_val_preditions[balanced_val_preditions >= threshold_p] <- 'WON'
+balanced_val_preditions[balanced_val_preditions < threshold_p] <- 'LOST'
 lvs <- c("LOST", "WON")
 truth <- factor(balanced_val$OFFER_STATUS,
                 levels = rev(lvs))
@@ -308,7 +312,14 @@ confusionMatrix(xtab)
 
 
 ## -------------------------------------------------------------------------------------------
-submission_preditions <- predict(model, newdata = submission)
+submission_preditions <- predict(model, newdata = submission, type = 'prob')
+submission_preditions <- submission_preditions[,2]
+submission_preditions[submission_preditions >= threshold_p] <- 'WON'
+submission_preditions[submission_preditions < threshold_p] <- 'LOST'
+lvs <- c("LOST", "WON")
+submission_preditions <- factor(
+               submission_preditions,               
+               levels = rev(lvs))
 
 
 ## -------------------------------------------------------------------------------------------
