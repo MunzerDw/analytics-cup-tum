@@ -162,6 +162,8 @@ df <- df %>% mutate(
 
 ## 2.3) Create data split
 
+Predict OFFER_STATUS of the submission data
+
 ```{r}
 submission <- df[!is.na(df$TEST_SET_ID), ]
 df <- df %>% drop_na(REV_CURRENT_YEAR.1)
@@ -197,7 +199,7 @@ h2o_split <-  as.h2o(train)
 #h2o_test <- h2o_splited[[1]]
 
 #h2o_auto = h2o.automl(y = "OFFER_STATUS", x = independent ,training_frame  = h2o_train, validation_frame = h2o_test, max_runtime_secs = 300, seed = 2022) #currently set to ~4h
-h2o_auto = h2o.automl(y = "OFFER_STATUS",training_frame  = h2o_split, max_runtime_secs = 1200, seed = 2022, balance_classes = TRUE, stopping_metric = "misclassification" ) #currently set to ~4h
+h2o_auto = h2o.automl(y = "OFFER_STATUS",training_frame  = h2o_split, max_runtime_secs = 30, seed = 2022, balance_classes = TRUE, stopping_metric = "misclassification" ) #currently set to ~4h
 
 h2o_auto
 h2o_auto@leader
@@ -208,14 +210,9 @@ h2o_submission_preditions <- h2o.predict(h2o_auto, newdata = h2o_submission)
 model <- h2o.getModel(model_id = h2o_auto@leader@model_id)
 
 submission_preditions <- as.data.frame(h2o_submission_preditions)
+```
 
 ## 4.4) Create submission
-
-Predict OFFER_STATUS of the submission data
-
-```{r}
-#submission_preditions <- predict(model, newdata = submission)
-```
 
 Create submission file
 
