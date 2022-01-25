@@ -313,8 +313,8 @@ sorted <- train[order(train$OFFER_STATUS),]
 shuffled <- sorted[sample(1:nrow(sorted)), ]
 
 # create balanced train and validation datasets
-balanced_train <- shuffled[1:22000,]
-balanced_val <- shuffled[22001:23000,]
+balanced_train <- shuffled[1:20000,]
+balanced_val <- shuffled[20001:23000,]
 
 # check OFFER_STATUS distribution
 print("TRAIN")
@@ -330,7 +330,7 @@ print(nrow(balanced_val[balanced_val$OFFER_STATUS == "WON",]))
 ```{r}
 # Create the forest.
 model <- randomForest(OFFER_STATUS ~ . - CUSTOMER_ID,
-                              data = balanced_train)
+                              data = balanced_train, ntree = 1000, mtry = 4)
 
 
 # View the forest results.
@@ -350,7 +350,7 @@ varImpPlot(model)
 ```{r}
 balanced_val_preditions <- predict(model, newdata = balanced_val, type = 'prob')
 balanced_val_preditions <- balanced_val_preditions[,2]
-threshold_p <- 0.7
+threshold_p <- 0.69
 balanced_val_preditions[balanced_val_preditions >= threshold_p] <- 'WON'
 balanced_val_preditions[balanced_val_preditions < threshold_p] <- 'LOST'
 lvs <- c("LOST", "WON")
