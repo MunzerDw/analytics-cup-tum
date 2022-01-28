@@ -1,0 +1,320 @@
+## -------------------------------------------------------------------------------------------
+library(tidyverse)
+library(lubridate) # data exploration
+library(summarytools) # for user-friendly html summaries of data
+library(ggmap) # for plotting data on a map
+library(tidymodels) # for meta-ml
+library(corrplot)
+library(party)
+library(randomForest)
+library(imputeTS)
+library(caret)
+library(h2o)
+
+# let's set some global options
+options(dplyr.width = Inf) # show all columns when printing to console
+theme_set(theme_minimal()) # select a lightweight ggplot theme for cleaner plotting
+set.seed(2022)
+
+
+## -------------------------------------------------------------------------------------------
+customers <- read_csv(
+  'Training_Data_AC2022/customers.csv'
+)
+customers
+
+transactions <- read_csv(
+  'Training_Data_AC2022/transactions.csv'
+)
+transactions
+
+geo <- read_csv(
+  'Training_Data_AC2022/geo.csv'
+)
+geo
+
+
+## -------------------------------------------------------------------------------------------
+## Fix country string
+customers$COUNTRY <- gsub('Switzerland', 'CH', customers$COUNTRY)
+customers$COUNTRY <- gsub('France', 'FR', customers$COUNTRY)
+
+## Fix customer string
+transactions <- transactions %>% mutate(CUSTOMER = str_replace_all(transactions$CUSTOMER, '"', ''))
+transactions <- transactions %>% mutate(CUSTOMER = str_replace_all(transactions$CUSTOMER, "\\\\", ''))
+
+transactions <- transactions %>% 
+  mutate(
+    CUSTOMER = as.double(CUSTOMER)
+  )
+
+## Create unqie CUSTOMER_ID in the customers dataframe
+customers$CUSTOMER_ID <- paste(customers$CUSTOMER,customers$COUNTRY,sep="")
+
+## Merge transactions and geo dataframes based on the SALES_LOCATION column
+df <- merge(x = transactions, y = geo, by = "SALES_LOCATION", all.x = TRUE)
+
+## Create CUSTOMER_ID in the merged dataframe
+df$CUSTOMER_ID <- paste(df$CUSTOMER,df$COUNTRY,sep="")
+
+## Merge dataframe df and customers on CUSTOMER_ID
+df <- merge(x = df, y = customers, by = "CUSTOMER_ID", all.x = TRUE)
+
+
+## -------------------------------------------------------------------------------------------
+df$MULTIPLE_OFFER <- if_else(!duplicated(df$MO_ID), 0, 1)
+
+df <- df %>% select(-END_CUSTOMER, -END_CUSTOMER, -SALES_OFFICE, -SO_ID, )
+df <- df %>% select(-CUSTOMER.x, -CUSTOMER.y, -COUNTRY.y, )
+
+
+## -------------------------------------------------------------------------------------------
+df <- df %>% mutate(
+  OFFER_STATUS=toupper(OFFER_STATUS)
+)
+df$OFFER_STATUS[df$OFFER_STATUS == "LOSE"] <- "LOST"
+df$OFFER_STATUS[df$OFFER_STATUS == "WIN"] <- "WON"
+
+
+## -------------------------------------------------------------------------------------------
+df <- df[df$TECH !='EPS', ]  
+
+
+## -------------------------------------------------------------------------------------------
+df <- df %>% mutate(
+  SALES_LOCATION = factor(SALES_LOCATION, labels = as.vector(unique(df$SALES_LOCATION))[!is.na(as.vector(unique(df$SALES_LOCATION)))]),
+  PRICE_LIST = factor(PRICE_LIST, labels = as.vector(unique(df$PRICE_LIST))),
+  BUSINESS_TYPE = factor(BUSINESS_TYPE, labels = as.vector(unique(df$BUSINESS_TYPE))),
+  OFFER_STATUS = factor(OFFER_STATUS, labels = as.vector(unique(df$OFFER_STATUS))[!is.na(as.vector(unique(df$OFFER_STATUS)))]),
+  SALES_BRANCH = factor(SALES_BRANCH, labels = as.vector(unique(df$SALES_BRANCH))[!is.na(as.vector(unique(df$SALES_BRANCH)))]),
+  TECH = factor(TECH, labels = as.vector(unique(df$TECH))[!is.na(as.vector(unique(df$TECH)))]),
+  OFFER_TYPE = factor(OFFER_TYPE, labels = as.vector(unique(df$OFFER_TYPE))[!is.na(as.vector(unique(df$OFFER_TYPE)))]),
+  OWNERSHIP = factor(OWNERSHIP, labels = as.vector(unique(df$OWNERSHIP))[!is.na(as.vector(unique(df$OWNERSHIP)))]),
+  CURRENCY = factor(CURRENCY, labels = as.vector(unique(df$CURRENCY))[!is.na(as.vector(unique(df$CURRENCY)))]),
+  ISIC = factor(ISIC, labels = as.vector(unique(df$ISIC))[!is.na(as.vector(unique(df$ISIC)))]),
+)
+
+
+## -------------------------------------------------------------------------------------------
+df <- df %>% mutate(REV_CURRENT_YEAR = str_replace_all(df$REV_CURRENT_YEAR, '"', ''))
+df <- df %>% mutate(REV_CURRENT_YEAR = str_replace_all(df$REV_CURRENT_YEAR, "\\\\", ''))
+df$REV_CURRENT_YEAR <- as.integer(df$REV_CURRENT_YEAR)
+
+df <- df %>% mutate(CREATION_YEAR = str_replace_all(df$CREATION_YEAR, "/", '.'))
+df$CREATION_YEAR <- as.Date(df$CREATION_YEAR, format="%d.%m.%Y")
+
+df %>% mutate(CREATION_YEAR = str_replace_all(df$CREATION_YEAR, "/", '.'))
+
+#remove Seconds
+for (i in 1:length(df$SO_CREATED_DATE)) {
+  if (nchar(df$SO_CREATED_DATE[i], type = "chars") > 16) {
+    df$SO_CREATED_DATE[i] <- substring(df$SO_CREATED_DATE[i],1,nchar(df$SO_CREATED_DATE[i])-3)
+  }}
+for (i in 1:length(df$MO_CREATED_DATE)) {
+  if (nchar(df$MO_CREATED_DATE[i], type = "chars") > 16) {
+    df$MO_CREATED_DATE[i] <- substring(df$MO_CREATED_DATE[i],1,nchar(df$MO_CREATED_DATE[i])-3)
+  }}
+
+#als Datum
+df$SO_CREATED_TIME <- as_datetime(df$SO_CREATED_DATE, format = '%d.%m.%Y %H:%M') 
+for (i in 1:length(df$SO_CREATED_TIME)) {
+  if(is.na(df$SO_CREATED_TIME[i])) {
+    df$SO_CREATED_TIME[i] <- as_datetime(df$SO_CREATED_DATE[i], format = '%Y-%m-%d %H:%M') 
+  }}
+df$SO_CREATED_DATE <- df$SO_CREATED_TIME
+df$SO_CREATED_TIME <- NULL 
+
+df$MO_CREATED_TIME <- as_datetime(df$MO_CREATED_DATE, format = '%d.%m.%Y %H:%M') 
+for (i in 1:length(df$MO_CREATED_TIME)) {
+  if(is.na(df$MO_CREATED_TIME[i])) {
+    df$MO_CREATED_TIME[i] <- as_datetime(df$MO_CREATED_DATE[i], format = '%Y-%m-%d %H:%M') 
+  }}
+df$MO_CREATED_DATE <- df$MO_CREATED_TIME
+df$MO_CREATED_TIME <- NULL
+
+df$MO_Weekday <- format(df$MO_CREATED_DATE, format="%a")
+df$SO_Weekday <- format(df$SO_CREATED_DATE, format="%a")
+
+df$SO_day <- format(df$SO_CREATED_DATE, format = "%d")
+df$MO_day <- format(df$MO_CREATED_DATE, format = "%d")
+
+df$SO_month <- format(df$SO_CREATED_DATE, format = "%m")
+df$MO_month <- format(df$MO_CREATED_DATE, format = "%m")
+
+df$SO_year <- format(df$SO_CREATED_DATE, format = "%Y")
+df$MO_year <- format(df$MO_CREATED_DATE, format = "%Y")
+
+#SO_Time <- hour(df$SO_CREATED_DATE)*60 + minute(df$SO_CREATED_DATE)
+#MO_Time <- hour(df$MO_CREATED_DATE)*60 + minute(df$MO_CREATED_DATE)
+
+df$MO_hours <- format(df$MO_CREATED_DATE, format = "%H")
+df$SO_hours <- format(df$SO_CREATED_DATE, format = "%H")
+
+df <- df %>% mutate(
+  #SO_Time = factor(SO_Time, labels = as.vector(unique(df$SO_Time))[!is.na(as.vector(unique(df$SO_Time)))]),
+  #MO_Time = factor(MO_Time, labels = as.vector(unique(df$MO_Time))[!is.na(as.vector(unique(df$MO_Time)))]),
+  MO_Weekday = factor(MO_Weekday, labels = as.vector(unique(df$MO_Weekday))[!is.na(as.vector(unique(df$MO_Weekday)))]),
+  SO_Weekday = factor(SO_Weekday, labels = as.vector(unique(df$SO_Weekday))[!is.na(as.vector(unique(df$SO_Weekday)))]),
+)
+
+
+## -------------------------------------------------------------------------------------------
+temp <- df$TEST_SET_ID
+df <- na_mean(df,option = "median")
+df$TEST_SET_ID <- temp
+
+#  SALES_LOCATION
+levels_sales_location <- levels(df$SALES_LOCATION)
+levels_sales_location[length(levels_sales_location) + 1] <- "None"
+df$SALES_LOCATION <- factor(df$SALES_LOCATION, levels = levels_sales_location)
+df$SALES_LOCATION[is.na(df$SALES_LOCATION)] <- "None"
+
+#  SALES_BRANCH
+levels_sales_location <- levels(df$SALES_BRANCH)
+levels_sales_location[length(levels_sales_location) + 1] <- "None"
+df$SALES_BRANCH <- factor(df$SALES_BRANCH, levels = levels_sales_location)
+df$SALES_BRANCH[is.na(df$SALES_BRANCH)] <- "None"
+
+#  OWNERSHIP
+levels_sales_location <- levels(df$OWNERSHIP)
+levels_sales_location[length(levels_sales_location) + 1] <- "None"
+df$OWNERSHIP <- factor(df$OWNERSHIP, levels = levels_sales_location)
+df$OWNERSHIP[is.na(df$OWNERSHIP)] <- "None"
+
+#  CURRENCY
+levels_sales_location <- levels(df$CURRENCY)
+levels_sales_location[length(levels_sales_location) + 1] <- "None"
+df$CURRENCY <- factor(df$CURRENCY, levels = levels_sales_location)
+df$CURRENCY[is.na(df$CURRENCY)] <- "None"
+
+# CREATION_YEAR
+df$CREATION_YEAR[is.na(df$CREATION_YEAR)] <- df$CREATION_YEAR[10]
+
+#  ISIC
+levels_sales_location <- levels(df$ISIC)
+levels_sales_location[length(levels_sales_location) + 1] <- "None"
+df$ISIC <- factor(df$ISIC, levels = levels_sales_location)
+df$ISIC[is.na(df$ISIC)] <- "None"
+
+## -------------------------------------------------------------------------------------------
+submission <- df[!is.na(df$TEST_SET_ID), ]
+
+train <- df[is.na(df$TEST_SET_ID), ]
+
+train <- train %>% select(-TEST_SET_ID, )
+train
+
+
+## -------------------------------------------------------------------------------------------
+submission
+
+
+## -------------------------------------------------------------------------------------------
+## Offer status compared to offer price: won offers are cheaper
+train %>% ggplot(aes(y=OFFER_PRICE, x=OFFER_STATUS, fill = OFFER_STATUS)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+## -------------------------------------------------------------------------------------------
+# Won offers and total costs: won offers have lower costs
+train %>% ggplot(aes(y=SERVICE_COST + MATERIAL_COST, x=OFFER_STATUS, fill = OFFER_STATUS)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+## -------------------------------------------------------------------------------------------
+# Country by OFFER_STATUS
+ggplot(train, aes(fill=OFFER_STATUS, x=COUNTRY.x)) + geom_bar(position="stack")
+
+
+## -------------------------------------------------------------------------------------------
+## Offer status country
+ggplot(train, aes(fill=OFFER_STATUS, x=TECH)) + geom_bar(position="stack")
+
+
+## -------------------------------------------------------------------------------------------
+## Offer status to sales location
+ggplot(train, aes(fill=OFFER_STATUS, x=SALES_BRANCH)) + geom_bar(position="stack")
+
+
+## -------------------------------------------------------------------------------------------
+# Copy training dataset
+numeric_train_df <- train
+
+# Change OFFER_STATUS to numeric: WON = 1, LOST = 2
+numeric_train_df <- numeric_train_df %>% mutate(
+  OFFER_STATUS=as.numeric(OFFER_STATUS)
+)
+
+nums <- unlist(lapply(numeric_train_df, is.numeric))  
+nums <- numeric_train_df[ , nums]  
+correlations <- cor(nums)
+corrplot(correlations)
+
+
+## -------------------------------------------------------------------------------------------
+chisq.test(train$OFFER_STATUS, train$COUNTRY.x, correct=FALSE)
+chisq.test(train$OFFER_STATUS, train$TECH, correct=FALSE)
+chisq.test(train$OFFER_STATUS, train$SALES_BRANCH)
+chisq.test(train$OFFER_STATUS, train$CURRENCY)
+chisq.test(train$OFFER_STATUS, train$CURRENCY)
+
+
+## -------------------------------------------------------------------------------------------
+
+train$SO_day <- as.factor(train$SO_day)
+train$CUSTOMER_ID <- as.factor(train$CUSTOMER_ID)
+train$MO_hours <- as.factor(train$MO_hours)
+train$SO_month <- as.factor(train$SO_month)
+train$MO_day <- as.factor(train$MO_day)
+train$MO_month <- as.factor(train$MO_month)
+train$COUNTRY.x <- as.factor(train$COUNTRY.x)
+train$SO_year <- as.factor(train$SO_year)
+train$MO_ID <- as.factor(train$MO_ID)
+train$MO_year <- as.factor(train$MO_year)
+train$SO_hours <- as.factor(train$SO_hours)
+
+## -------------------------------------------------------------------------------------------
+
+
+h2o.init() #here you can set CPU and RAM usage 
+h2o_train <-  as.h2o(train)
+h2o_auto = h2o.automl(y = "OFFER_STATUS",training_frame  = h2o_train, max_runtime_secs = 69, seed = 2022, balance_classes = TRUE, max_after_balance_size = 100 , sort_metric = "AUCPR") #currently set to ~4h
+#h2o_auto@leader
+threshold_p = h2o_auto@leader@model[["cross_validation_metrics"]]@metrics[["max_criteria_and_metric_scores"]][["threshold"]][[8]]
+#this takes max. MCC threshold from h2o_auto@leader, check for alternatives: 
+#h2o_auto@leader@model[["cross_validation_metrics"]]@metrics[["max_criteria_and_metric_scores"]]
+model <- h2o.getModel(model_id = h2o_auto@leader@model_id)
+
+
+## -------------------------------------------------------------------------------------------
+
+h2o_submission <-  as.h2o(submission)
+h2o_submission_preditions <- h2o.predict(h2o_auto, newdata = h2o_submission)
+
+submission_preditions <- as.data.frame(h2o_submission_preditions)
+submission_preditions <- submission_preditions[,3]
+submission_preditions[submission_preditions >= threshold_p] <- 'WON'
+submission_preditions[submission_preditions < threshold_p] <- 'LOST'
+submission_preditions <- as.factor(submission_preditions)
+
+summary(submission_preditions)
+
+
+## -------------------------------------------------------------------------------------------
+submission_final <- submission
+submission_final$OFFER_STATUS <- submission_preditions
+
+print(nrow(submission_final[submission_final$OFFER_STATUS == "LOST",]))
+print(nrow(submission_final[submission_final$OFFER_STATUS == "WON",]))
+
+submission_file_df <- submission_final %>% select(TEST_SET_ID, OFFER_STATUS)
+submission_file_df$OFFER_STATUS <- ifelse(submission_file_df$OFFER_STATUS == 'WON', 1, 0)
+summary(submission_file_df)
+
+write.csv(submission_file_df, 'predictions_fierce_pigeon_SUBMISSION_NUMBER.csv', row.names = FALSE)
+
+
+## -------------------------------------------------------------------------------------------
+knitr::purl("index.Rmd")
