@@ -22,6 +22,7 @@ library(party)
 library(randomForest)
 library(imputeTS)
 library(caret)
+library(h2o)
 
 # let's set some global options
 options(dplyr.width = Inf) # show all columns when printing to console
@@ -117,6 +118,7 @@ df <- df %>% mutate(
   OFFER_TYPE = factor(OFFER_TYPE, labels = as.vector(unique(df$OFFER_TYPE))[!is.na(as.vector(unique(df$OFFER_TYPE)))]),
   OWNERSHIP = factor(OWNERSHIP, labels = as.vector(unique(df$OWNERSHIP))[!is.na(as.vector(unique(df$OWNERSHIP)))]),
   CURRENCY = factor(CURRENCY, labels = as.vector(unique(df$CURRENCY))[!is.na(as.vector(unique(df$CURRENCY)))]),
+  ISIC = factor(ISIC, labels = as.vector(unique(df$ISIC))[!is.na(as.vector(unique(df$ISIC)))]),
 )
 ```
 
@@ -190,7 +192,7 @@ For numeric columns, we replace the NAs with the mean. For factorial columns, we
 
 ```{r}
 temp <- df$TEST_SET_ID
-df <- na_mean(df,)
+df <- na_mean(df,option = "median")
 df$TEST_SET_ID <- temp
 
 #  SALES_LOCATION
@@ -219,6 +221,12 @@ df$CURRENCY[is.na(df$CURRENCY)] <- "None"
 
 # CREATION_YEAR
 df$CREATION_YEAR[is.na(df$CREATION_YEAR)] <- df$CREATION_YEAR[10]
+
+#  ISIC
+levels_sales_location <- levels(df$ISIC)
+levels_sales_location[length(levels_sales_location) + 1] <- "None"
+df$ISIC <- factor(df$ISIC, levels = levels_sales_location)
+df$ISIC[is.na(df$ISIC)] <- "None"
 ```
 
 
