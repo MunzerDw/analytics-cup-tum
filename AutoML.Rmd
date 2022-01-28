@@ -327,7 +327,7 @@ train$SO_hours <- as.factor(train$SO_hours)
 
 h2o.init() #here you can set CPU and RAM usage 
 h2o_train <-  as.h2o(train)
-h2o_auto = h2o.automl(y = "OFFER_STATUS",training_frame  = h2o_train, max_runtime_secs = 69, seed = 2022, balance_classes = TRUE, max_after_balance_size = 100 , sort_metric = "AUCPR") #currently set to ~4h
+h2o_auto = h2o.automl(y = "OFFER_STATUS",training_frame  = h2o_train, max_runtime_secs = 15000, seed = 2022, balance_classes = TRUE, max_after_balance_size = 100 , sort_metric = "AUCPR") #currently set to ~4h
 #h2o_auto@leader
 threshold_p = h2o_auto@leader@model[["cross_validation_metrics"]]@metrics[["max_criteria_and_metric_scores"]][["threshold"]][[8]]
 #this takes max. MCC threshold from h2o_auto@leader, check for alternatives: 
