@@ -391,6 +391,11 @@ print(nrow(submission_final[submission_final$OFFER_STATUS == "WON",]))
 submission_file_df <- submission_final %>% select(TEST_SET_ID, OFFER_STATUS)
 submission_file_df$OFFER_STATUS <- ifelse(submission_file_df$OFFER_STATUS == 'WON', 1, 0)
 summary(submission_file_df)
+submission_file_df <- submission_file_df %>% 
+    rename(
+        id = TEST_SET_ID,
+        prediction = OFFER_STATUS
+    )
 
 write.csv(submission_file_df, 'predictions_fierce_pigeon_SUBMISSION_NUMBER.csv', row.names = FALSE)
 ```
