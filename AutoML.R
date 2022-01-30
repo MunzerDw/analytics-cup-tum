@@ -1,17 +1,4 @@
----
-title: "Analytics Cup"
-output:
-  html_document:
-    df_print: paged
-  html_notebook: default
-  pdf_document: default
----
-
-# 1) Libraries & Data Import
-
-First, we import necessary libraries and set global options.
-
-```{r}
+## -------------------------------------------------------------------------------------------
 library(tidyverse)
 library(lubridate) # data exploration
 library(summarytools) # for user-friendly html summaries of data
@@ -28,11 +15,9 @@ library(h2o)
 options(dplyr.width = Inf) # show all columns when printing to console
 theme_set(theme_minimal()) # select a lightweight ggplot theme for cleaner plotting
 set.seed(2022)
-```
 
-Next, we import our csv datasets to dataframes
 
-```{r}
+## -------------------------------------------------------------------------------------------
 customers <- read_csv(
   'Training_Data_AC2022/customers.csv'
 )
@@ -47,15 +32,9 @@ geo <- read_csv(
   'Training_Data_AC2022/geo.csv'
 )
 geo
-```
 
 
-
-# 2) Pre-processing Data
-
-## 2.1) Merging all dataframes into one
-
-```{r}
+## -------------------------------------------------------------------------------------------
 ## Fix country string
 customers$COUNTRY <- gsub('Switzerland', 'CH', customers$COUNTRY)
 customers$COUNTRY <- gsub('France', 'FR', customers$COUNTRY)
@@ -80,34 +59,28 @@ df$CUSTOMER_ID <- paste(df$CUSTOMER,df$COUNTRY,sep="")
 
 ## Merge dataframe df and customers on CUSTOMER_ID
 df <- merge(x = df, y = customers, by = "CUSTOMER_ID", all.x = TRUE)
-```
 
-## 2.2) Data cleaning
 
-Handle offers with one MO_ID only
-```{r}
+## -------------------------------------------------------------------------------------------
 df$MULTIPLE_OFFER <- if_else(!duplicated(df$MO_ID), 0, 1)
 
 df <- df %>% select(-END_CUSTOMER, -END_CUSTOMER, -SALES_OFFICE, -SO_ID, )
 df <- df %>% select(-CUSTOMER.x, -CUSTOMER.y, -COUNTRY.y, )
-```
 
-Fix target variable OFFER_STATUS
-```{r}
+
+## -------------------------------------------------------------------------------------------
 df <- df %>% mutate(
   OFFER_STATUS=toupper(OFFER_STATUS)
 )
 df$OFFER_STATUS[df$OFFER_STATUS == "LOSE"] <- "LOST"
 df$OFFER_STATUS[df$OFFER_STATUS == "WIN"] <- "WON"
-```
 
-Remove Tech EPS
-```{r}
+
+## -------------------------------------------------------------------------------------------
 df <- df[df$TECH !='EPS', ]  
-```
 
-Create factors
-```{r}
+
+## -------------------------------------------------------------------------------------------
 df <- df %>% mutate(
   SALES_LOCATION = factor(SALES_LOCATION, labels = as.vector(unique(df$SALES_LOCATION))[!is.na(as.vector(unique(df$SALES_LOCATION)))]),
   PRICE_LIST = factor(PRICE_LIST, labels = as.vector(unique(df$PRICE_LIST))),
@@ -120,10 +93,9 @@ df <- df %>% mutate(
   CURRENCY = factor(CURRENCY, labels = as.vector(unique(df$CURRENCY))[!is.na(as.vector(unique(df$CURRENCY)))]),
   ISIC = factor(ISIC, labels = as.vector(unique(df$ISIC))[!is.na(as.vector(unique(df$ISIC)))]),
 )
-```
 
-Handle dates
-```{r}
+
+## -------------------------------------------------------------------------------------------
 df <- df %>% mutate(REV_CURRENT_YEAR = str_replace_all(df$REV_CURRENT_YEAR, '"', ''))
 df <- df %>% mutate(REV_CURRENT_YEAR = str_replace_all(df$REV_CURRENT_YEAR, "\\\\", ''))
 df$REV_CURRENT_YEAR <- as.integer(df$REV_CURRENT_YEAR)
@@ -184,13 +156,9 @@ df <- df %>% mutate(
   MO_Weekday = factor(MO_Weekday, labels = as.vector(unique(df$MO_Weekday))[!is.na(as.vector(unique(df$MO_Weekday)))]),
   SO_Weekday = factor(SO_Weekday, labels = as.vector(unique(df$SO_Weekday))[!is.na(as.vector(unique(df$SO_Weekday)))]),
 )
-```
 
-## 2.3) Handle NAs
 
-For numeric columns, we replace the NAs with the mean. For factorial columns, we replace the NAs with a new level "None"
-
-```{r}
+## -------------------------------------------------------------------------------------------
 temp <- df$TEST_SET_ID
 df <- na_mean(df,option = "median")
 df$TEST_SET_ID <- temp
@@ -227,62 +195,50 @@ levels_sales_location <- levels(df$ISIC)
 levels_sales_location[length(levels_sales_location) + 1] <- "None"
 df$ISIC <- factor(df$ISIC, levels = levels_sales_location)
 df$ISIC[is.na(df$ISIC)] <- "None"
-```
 
-
-## 2.4) Create data split
-
-```{r}
+## -------------------------------------------------------------------------------------------
 submission <- df[!is.na(df$TEST_SET_ID), ]
 
 train <- df[is.na(df$TEST_SET_ID), ]
 
 train <- train %>% select(-TEST_SET_ID, )
 train
-```
 
 
-```{r}
+## -------------------------------------------------------------------------------------------
 submission
-```
-# 3) Exploratory Analysis
 
-## 3.1) Some visualisations
 
-```{r}
+## -------------------------------------------------------------------------------------------
 ## Offer status compared to offer price: won offers are cheaper
 train %>% ggplot(aes(y=OFFER_PRICE, x=OFFER_STATUS, fill = OFFER_STATUS)) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
 
-```{r}
+
+## -------------------------------------------------------------------------------------------
 # Won offers and total costs: won offers have lower costs
 train %>% ggplot(aes(y=SERVICE_COST + MATERIAL_COST, x=OFFER_STATUS, fill = OFFER_STATUS)) +
   geom_boxplot() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
 
 
-```{r}
+## -------------------------------------------------------------------------------------------
 # Country by OFFER_STATUS
 ggplot(train, aes(fill=OFFER_STATUS, x=COUNTRY.x)) + geom_bar(position="stack")
-```
 
-```{r}
+
+## -------------------------------------------------------------------------------------------
 ## Offer status country
 ggplot(train, aes(fill=OFFER_STATUS, x=TECH)) + geom_bar(position="stack")
-```
 
-```{r}
+
+## -------------------------------------------------------------------------------------------
 ## Offer status to sales location
 ggplot(train, aes(fill=OFFER_STATUS, x=SALES_BRANCH)) + geom_bar(position="stack")
-```
 
-## 3.2) Correlation Analysis
 
-Correlation between numerical variables
-```{r}
+## -------------------------------------------------------------------------------------------
 # Copy training dataset
 numeric_train_df <- train
 
@@ -295,20 +251,17 @@ nums <- unlist(lapply(numeric_train_df, is.numeric))
 nums <- numeric_train_df[ , nums]  
 correlations <- cor(nums)
 corrplot(correlations)
-```
 
-Correlation of categorical variables. Small p-values (< 0.05) indicate a correlation between the dependent variable OFFER_STATUS and the categorical variables
-```{r}
+
+## -------------------------------------------------------------------------------------------
 chisq.test(train$OFFER_STATUS, train$COUNTRY.x, correct=FALSE)
 chisq.test(train$OFFER_STATUS, train$TECH, correct=FALSE)
 chisq.test(train$OFFER_STATUS, train$SALES_BRANCH)
 chisq.test(train$OFFER_STATUS, train$CURRENCY)
 chisq.test(train$OFFER_STATUS, train$CURRENCY)
-```
 
-# 4) Training
 
-## 4.1) Factorise training data
+## -------------------------------------------------------------------------------------------
 
 train$SO_day <- as.factor(train$SO_day)
 train$CUSTOMER_ID <- as.factor(train$CUSTOMER_ID)
@@ -322,7 +275,7 @@ train$MO_ID <- as.factor(train$MO_ID)
 train$MO_year <- as.factor(train$MO_year)
 train$SO_hours <- as.factor(train$SO_hours)
 
-## 4.2) Train model
+## -------------------------------------------------------------------------------------------
 
 
 h2o.init() #here you can set CPU and RAM usage 
@@ -335,7 +288,7 @@ threshold_p = h2o_auto@leader@model[["cross_validation_metrics"]]@metrics[["max_
 model <- h2o.getModel(model_id = h2o_auto@leader@model_id)
 
 
-## 4.3) Prediction
+## -------------------------------------------------------------------------------------------
 
 h2o_submission <-  as.h2o(submission)
 h2o_submission_preditions <- h2o.predict(h2o_auto, newdata = h2o_submission)
@@ -349,11 +302,7 @@ submission_preditions <- as.factor(submission_preditions)
 summary(submission_preditions)
 
 
-## 4.4) Create submission
-
-Create submission file
-
-```{r}
+## -------------------------------------------------------------------------------------------
 submission_final <- submission
 submission_final$OFFER_STATUS <- submission_preditions
 
@@ -365,14 +314,7 @@ submission_file_df$OFFER_STATUS <- ifelse(submission_file_df$OFFER_STATUS == 'WO
 summary(submission_file_df)
 
 write.csv(submission_file_df, 'predictions_fierce_pigeon_SUBMISSION_NUMBER.csv', row.names = FALSE)
-```
 
-```{r}
+
+## -------------------------------------------------------------------------------------------
 #knitr::purl("index.Rmd")
-```
-
-
-
-
-
-
